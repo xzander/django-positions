@@ -65,14 +65,17 @@ class PositionField(models.IntegerField):
         previous_instance = None
         collection_changed = False
         if not add and self.collection is not None:
-            previous_instance = type(model_instance)._default_manager.get(pk=model_instance.pk)
-            for field_name in self.collection:
-                field = model_instance._meta.get_field(field_name)
-                current_field_value = getattr(model_instance, field.attname)
-                previous_field_value = getattr(previous_instance, field.attname)
-                if previous_field_value != current_field_value:
-                    collection_changed = True
-                    break
+            try:
+                previous_instance = type(model_instance)._default_manager.get(pk=model_instance.pk)
+                for field_name in self.collection:
+                    field = model_instance._meta.get_field(field_name)
+                    current_field_value = getattr(model_instance, field.attname)
+                    previous_field_value = getattr(previous_instance, field.attname)
+                    if previous_field_value != current_field_value:
+                        collection_changed = True
+                        break
+            except models.ObjectDoesNotExist:
+                add = True
         if not collection_changed:
             previous_instance = None
 
@@ -149,7 +152,7 @@ class PositionField(models.IntegerField):
         else:
             updated = value
 
-        instance.__dict__[self.name] = value # Django 1.10 fix for deferred fields        
+        instance.__dict__[self.name] = value # Django 1.10 fix for deferred fields
         setattr(instance, cache_name, (current, updated))
 
     def get_collection(self, instance):
