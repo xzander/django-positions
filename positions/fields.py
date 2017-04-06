@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 import datetime
 import warnings
 import types
@@ -58,11 +59,15 @@ class PositionField(models.IntegerField):
                 self.auto_now_fields.append(field)
         setattr(cls, self.name, self)
 
-        def _position_move(instance, up):
+        def _position_move(instance, up=None, position=None):
+            if up is None and position is None:
+                raise AttributeError("You must specify 'up' or 'position' param")
             collection = self.get_collection(instance)
             cache_name = self.get_cache_name()
             position = getattr(instance, cache_name)[0]
-            if up:
+            if up is None:
+                collection = collection.filter(**{'%s__gt' % self.name: position})
+            elif up:
                 collection = collection.filter(**{'%s__gt' % self.name: position})
             else:
                 collection = collection.order_by('-%s' % self.name).filter(**{'%s__lt' % self.name: position})
@@ -70,6 +75,7 @@ class PositionField(models.IntegerField):
                 replacement = collection[0]
             except IndexError:
                 return
+            # TODO make set function workable
             current, updated = getattr(instance, cache_name), getattr(replacement, cache_name)
             setattr(instance, cache_name, updated)
             setattr(replacement, cache_name, current)
@@ -82,8 +88,12 @@ class PositionField(models.IntegerField):
         def position_up(self):
             return _position_move(self, up=True)
 
+        def position_set(self, position):
+            return _position_move(self, position=position)
+
         setattr(cls, '%s_down' % self.name, position_down)
         setattr(cls, '%s_up' % self.name, position_up)
+        setattr(cls, '%s_set' % self.name, position_set)
 
         pre_delete.connect(self.prepare_delete, sender=cls)
         post_delete.connect(self.update_on_delete, sender=cls)
